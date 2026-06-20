@@ -1,50 +1,38 @@
-📚 Library Management System
+# 📚 Library Management System
 
-A full-featured Library Management System built using Flask and SQLite that streamlines library operations through role-based access control, automated fine management, and transaction tracking.
-
----
-
-🚀 Features
-
-👨‍🎓 Student Portal
-
-- Secure authentication
-- Browse available books
-- Borrow books
-- View active loans
-- Track due dates
-- View overdue books
-- Check outstanding fines
-- Receive department-based book recommendations
-
-👨‍💼 Librarian Portal
-
-- Dashboard with library statistics
-- Add, update, and remove books
-- Manage student accounts
-- Process book returns
-- Automatic fine calculation
-- Fine settlement management
-- Student suspension/reactivation
-- Transaction monitoring
-- Activity and audit logs
+A full-featured, secure Library Management System built using Flask and SQLite. This system streamlines library operations through role-based access control, automated fine management, and comprehensive transaction tracking.
 
 ---
 
-🛠️ Technologies Used
+## 🚀 Features
 
-- Python
-- Flask
-- SQLite
-- HTML5
-- CSS3
-- JavaScript
-- Jinja2
+### 👨‍🎓 Student Portal
+* **Secure Authentication:** Sign in with encrypted password verification.
+* **Smart Catalog:** Browse available books with integrated department-based book recommendations.
+* **Loan Management:** Borrow books, view active loans, and track due dates in real-time.
+* **Fine Tracker:** Monitor overdue books, check outstanding fines, and view suspension status.
+
+### 👨‍💼 Librarian Portal
+* **Analytics Dashboard:** Real-time library statistics (total books, active loans, defaulters).
+* **Inventory Control:** Full CRUD operations (Add, update, and remove books) with automatic copy tracking.
+* **User Management:** Manage student accounts, process suspensions, and reactivate accounts.
+* **Fulfillment Desk:** Process book returns with automatic fine calculation and settlement workflows.
+* **Audit Logs:** Monitor transactions and critical activity logs for accountability.
 
 ---
 
-📂 Project Structure
+## 🛠 Technologies Used
 
+* **Backend:** Python, Flask, Jinja2
+* **Database:** SQLite (with robust data integrity and relations)
+* **Security:** Secure SHA-256 password hashing
+* **Frontend:** HTML5, CSS3, JavaScript
+
+---
+
+## 📂 Project Structure
+
+```text
 Library-Management-System/
 │
 ├── app/
@@ -59,128 +47,84 @@ Library-Management-System/
 │   ├── templates/
 │   ├── static/
 │   ├── db.py
-│   └── _init_.py
+│   └── __init__.py
 │
 ├── run.py
 ├── requirements.txt
 ├── README.md
 └── .gitignore
+```
 
 ---
 
-🔐 Business Rules
+## 🔐 Business Rules
 
-- Students can only borrow books if:
-  
-  - Their account is active
-  - No unpaid fines exist
-  - Borrowing limit has not been reached
-
-- Overdue returns automatically generate fines.
-
-- Students with unpaid fines are suspended until fines are settled.
-
-- Book inventory updates automatically after borrowing and returning.
+* **Borrowing Eligibility:** Students can only borrow books if:
+  * Their account status is **Active** (not suspended).
+  * They have **zero** unpaid outstanding fines.
+  * Their maximum borrowing limit has not been reached.
+* **Automated Penalty:** Overdue returns automatically trigger fine calculations based on due dates.
+* **Account Control:** Students with unpaid fines are automatically flagged/suspended until the fine workflow is settled by a librarian.
+* **Inventory Sync:** Book inventory updates seamlessly in real-time upon every successful borrow and return transaction.
 
 ---
 
-📊 Core Functionalities
+## ⚙️ Installation & Setup
 
-Book Management
+Follow these steps to get the project running locally:
 
-- Add books
-- Edit books
-- Delete books
-- Track available copies
-
-Loan Management
-
-- Borrow books
-- Return books
-- Due date tracking
-- Overdue detection
-
-Fine Management
-
-- Automatic fine calculation
-- Outstanding fine tracking
-- Fine settlement workflow
-
-Reporting & Monitoring
-
-- Dashboard statistics
-- Transaction history
-- Activity logs
-- Defaulter tracking
-
----
-
-⚙️ Installation
-
-1. Clone Repository
-
+### 1. Clone the Repository
+```bash
 git clone https://github.com/your-username/library-management-system.git
 cd library-management-system
+```
 
-2. Create Virtual Environment
-
+### 2. Create a Virtual Environment
+```bash
 python -m venv venv
+```
 
-3. Activate Environment
+### 3. Activate the Environment
+* **Windows:**
+  ```bash
+  venv\Scripts\activate
+  ```
+* **Linux/macOS:**
+  ```bash
+  source venv/bin/activate
+  ```
 
-Windows:
-
-venv\Scripts\activate
-
-Linux/Mac:
-
-source venv/bin/activate
-
-4. Install Dependencies
-
+### 4. Install Dependencies
+```bash
 pip install -r requirements.txt
+```
 
-5. Run Application
-
+### 5. Run the Application
+```bash
 python run.py
+```
 
-6. Open Browser
-
-http://127.0.0.1:5000
-
----
-
-🎯 Key Highlights
-
-- Role-Based Authentication
-- Modular Flask Architecture
-- Secure Password Hashing
-- Automated Fine System
-- Student Account Control
-- Department-Based Recommendations
-- Activity Logging
-- Scalable Project Structure
+### 6. Access the App
+Open your browser and navigate to: `http://127.0.0.1:5000`
 
 ---
 
-📸 Screenshots
+## 🎯 Key Highlights
 
-## Screenshots
+* **Role-Based Access Control (RBAC):** Strict separation between student and librarian capabilities.
+* **Modular Architecture:** Clean blueprints and routing configuration for scalable development.
+* **Data Security:** Bulletproof backend validation and secure credential encryption.
+* **Automated Workflows:** Zero manual intervention needed for overdue detection or stock updates.
 
-### Login Page
+---
 
-![Login Page](screenshots/login.png)
+## 📸 Screenshots
 
-### Student Dashboard
 
-![Student Dashboard](screenshots/student-dashboard.png)
+| Login Page | Student Dashboard |
+|------------|-------------------|
+| *![Login Page](screenshots/login.png)* | *![Student Dashboard](screenshots/student-dashboard.png)* |
 
-### Librarian Dashboard
-
-![Librarian Dashboard](screenshots/librarian-dashboard.png)
-
-### Book Catalogue
-
-![Book Catalogue](screenshots/books.png)
-
----"# library-management-system" 
+| Librarian Dashboard | Book Catalog |
+|---------------------|--------------|
+| *![Librarian Dashboard](screenshots/librarian-dashboard.png)* | *![Book Catalogue](screenshots/books.png)* |
