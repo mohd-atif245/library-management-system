@@ -1,0 +1,533 @@
+{% extends "base.html" %}
+{% block title %}Librarian Dashboard — Library MS{% endblock %}
+
+{% block head %}
+<style>
+  /* Tab nav */
+  .tab-nav { display:flex; gap:4px; border-bottom:2px solid var(--gray-200); margin-bottom:24px; flex-wrap:wrap; }
+  .tab-btn {
+    padding:9px 16px; font-size:.85rem; font-weight:500; color:var(--gray-600);
+    background:none; border:none; cursor:pointer; border-bottom:2px solid transparent;
+    margin-bottom:-2px; border-radius:var(--radius-sm) var(--radius-sm) 0 0; white-space:nowrap;
+    transition:color .15s, background .15s;
+  }
+  .tab-btn:hover { color:var(--gray-900); background:var(--gray-100); }
+  .tab-btn.tab-active { color:var(--blue); border-bottom-color:var(--blue); background:var(--blue-pale); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+{# Page header #}
+<div style="margin-bottom:24px;">
+  <h1>Library Dashboard</h1>
+  <p class="text-sm text-muted">Librarian: <strong>{{ session['name'] }}</strong></p>
+</div>
+
+{# ---- Metrics ---- #}
+<div class="metrics-grid">
+  <div class="metric blue">
+    <span class="metric-icon" aria-hidden="true">📚</span>
+    <div class="metric-value">{{ total_books }}</div>
+    <div class="metric-label">Books in catalogue</div>
+  </div>
+  <div class="metric amber">
+    <span class="metric-icon" aria-hidden="true">🔄</span>
+    <div class="metric-value">{{ active_loans }}</div>
+    <div class="metric-label">Active loans</div>
+  </div>
+  <div class="metric teal">
+    <span class="metric-icon" aria-hidden="true">👤</span>
+    <div class="metric-value">{{ total_students }}</div>
+    <div class="metric-label">Registered students</div>
+  </div>
+  <div class="metric green">
+    <span class="metric-icon" aria-hidden="true">✅</span>
+    <div class="metric-value">Rs.{{ "%.0f"|format(fine_collected) }}</div>
+    <div class="metric-label">Fines collected</div>
+  </div>
+  <div class="metric red">
+    <span class="metric-icon" aria-hidden="true">⏳</span>
+    <div class="metric-value">Rs.{{ "%.0f"|format(fine_outstanding) }}</div>
+    <div class="metric-label">Fines outstanding</div>
+  </div>
+</div>
+
+{# ---- Tab navigation ---- #}
+<nav class="tab-nav" role="tablist" aria-label="Dashboard sections">
+  <button class="tab-btn" data-tab="transactions" role="tab" aria-controls="panel-transactions">📋 Transactions</button>
+  <button class="tab-btn" data-tab="books"        role="tab" aria-controls="panel-books">📚 Book Catalogue</button>
+  <button class="tab-btn" data-tab="students"     role="tab" aria-controls="panel-students">👥 Students</button>
+  <button class="tab-btn" data-tab="defaulters"   role="tab" aria-controls="panel-defaulters">⚠ Defaulters</button>
+  <button class="tab-btn" data-tab="reports"      role="tab" aria-controls="panel-reports">📊 Reports</button>
+  <button class="tab-btn" data-tab="audit"        role="tab" aria-controls="panel-audit">🔍 Activity Log</button>
+</nav>
+
+{# ===========================
+   TAB 1 — Transactions
+   =========================== #}
+<section id="panel-transactions" data-panel="transactions" aria-labelledby="tab-transactions">
+
+  <div class="dashboard-grid" style="margin-bottom:24px;">
+
+    {# Return a book #}
+    <div class="card" style="border-top:3px solid var(--blue);">
+      <div class="card-header"><h3>📥 Process Return</h3></div>
+      <div class="card-body">
+        <p class="text-sm text-muted" style="margin-bottom:12px;">
+          Enter the Transaction ID to return a book. Fine calculated automatically if overdue.
+        </p>
+        <form method="POST" action="{{ url_for('librarian.return_book') }}" class="form-row">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group" style="flex:1;">
+            <label for="txn_id" class="sr-only">Transaction ID</label>
+            <input type="text" id="txn_id" name="txn_id" placeholder="Transaction ID (e.g. TXN-A1B2C3D4)" required
+                   style="text-transform:uppercase;" maxlength="20">
+          </div>
+          <button type="submit" class="btn btn-primary">Process Return</button>
+        </form>
+      </div>
+    </div>
+
+    {# Settle fine #}
+    <div class="card" style="border-top:3px solid var(--green);">
+      <div class="card-header"><h3>💰 Settle Fines</h3></div>
+      <div class="card-body">
+        <p class="text-sm text-muted" style="margin-bottom:12px;">
+          Enter a Student ID to mark all their fines as paid and restore borrowing access.
+        </p>
+        <form method="POST" action="{{ url_for('librarian.settle_fine') }}" class="form-row"
+              data-confirm="Confirm clearing all fines for this student?">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group" style="flex:1;">
+            <label for="settle_student_id" class="sr-only">Student ID</label>
+            <input type="text" id="settle_student_id" name="student_id" placeholder="Student ID (e.g. STU001)" required
+                   style="text-transform:uppercase;" maxlength="20">
+          </div>
+          <button type="submit" class="btn btn-success">Clear Fines</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  {# Transaction log #}
+  <div class="card">
+    <div class="card-header">
+      <h3>📋 Recent Transactions</h3>
+      <span class="badge badge-gray">Last 50</span>
+    </div>
+    <div class="card-body" style="padding-bottom:0;">
+      <input type="text" class="table-search" placeholder="Search transactions…"
+             data-filter-target="#txn-table" aria-label="Search transactions">
+    </div>
+    <div class="table-wrap">
+      <table id="txn-table">
+        <thead>
+          <tr>
+            <th>Txn ID</th>
+            <th>Student</th>
+            <th>Book</th>
+            <th>Issued</th>
+            <th>Due</th>
+            <th>Returned</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in txns %}
+            <tr class="{% if txn['is_overdue'] %}overdue-row{% endif %}">
+              <td><code>{{ txn['txn_id'] }}</code></td>
+              <td>
+                <strong>{{ txn['name'] }}</strong>
+                <div class="text-xs text-muted">{{ txn['user_id'] }}</div>
+              </td>
+              <td>
+                {{ txn['title'] }}
+                <div class="text-xs text-muted">{{ txn['book_id'] }}</div>
+              </td>
+              <td class="text-sm">{{ txn['issue_date'] }}</td>
+              <td class="text-sm">
+                {{ txn['due_date'] }}
+                {% if txn['is_overdue'] %}
+                  <span class="overdue-tag">OVERDUE</span>
+                {% endif %}
+              </td>
+              <td class="text-sm">{{ txn['return_date'] or '—' }}</td>
+              <td>
+                {% if txn['status'] == 'Issued' %}
+                  <span class="badge {% if txn['is_overdue'] %}badge-red{% else %}badge-amber{% endif %}">
+                    {{ 'Overdue' if txn['is_overdue'] else 'On loan' }}
+                  </span>
+                {% else %}
+                  <span class="badge badge-green">Returned</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr class="empty-row"><td colspan="7">No transactions yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</section>
+
+{# ===========================
+   TAB 2 — Books
+   =========================== #}
+<section id="panel-books" data-panel="books" hidden aria-labelledby="tab-books">
+
+  {# Add book #}
+  <div class="card mb-6" style="border-top:3px solid var(--blue);">
+    <div class="card-header"><h3>➕ Add New Book</h3></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('librarian.add_book') }}" class="form-row">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group"><label>Title *</label>
+          <input type="text" name="title" placeholder="Book title" required maxlength="200"></div>
+        <div class="form-group"><label>Author *</label>
+          <input type="text" name="author" placeholder="Author name" required maxlength="100"></div>
+        <div class="form-group" style="max-width:100px;"><label>Dept *</label>
+          <input type="text" name="dept" placeholder="CS" required maxlength="10" style="text-transform:uppercase;"></div>
+        <div class="form-group"><label>ISBN</label>
+          <input type="text" name="isbn" placeholder="978-…" maxlength="20"></div>
+        <div class="form-group" style="max-width:100px;"><label>Copies *</label>
+          <input type="number" name="copies" value="1" min="1" max="100" required></div>
+        <div style="display:flex;align-items:flex-end;">
+          <button type="submit" class="btn btn-primary">Add Book</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# Book catalogue table #}
+  <div class="card">
+    <div class="card-header">
+      <h3>📚 Catalogue</h3>
+      <span class="badge badge-blue">{{ all_books|length }} titles</span>
+    </div>
+    <div class="card-body" style="padding-bottom:0;">
+      <input type="text" class="table-search" placeholder="Search books…"
+             data-filter-target="#books-table" aria-label="Search books">
+    </div>
+    <div class="table-wrap">
+      <table id="books-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Dept</th>
+            <th>ISBN</th>
+            <th>Copies</th>
+            <th>Borrowed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for book in all_books %}
+            {% set on_loan = book['total_copies'] - book['available_copies'] %}
+            <tr>
+              <td><code>{{ book['book_id'] }}</code></td>
+              <td><strong>{{ book['title'] }}</strong></td>
+              <td class="text-sm text-muted">{{ book['author'] }}</td>
+              <td><span class="badge badge-blue">{{ book['dept'] }}</span></td>
+              <td class="text-xs text-muted">{{ book['isbn'] or '—' }}</td>
+              <td class="text-sm">
+                {{ book['available_copies'] }}/{{ book['total_copies'] }}
+                {% if on_loan > 0 %}
+                  <span class="badge badge-amber">{{ on_loan }} out</span>
+                {% endif %}
+              </td>
+              <td class="text-sm">{{ book['borrow_count'] }}</td>
+              <td>
+                <div class="flex gap-2">
+                  {# Quick edit via modal — inline minimal form #}
+                  <details style="position:relative;">
+                    <summary class="btn btn-primary btn-xs" style="list-style:none;cursor:pointer;" aria-label="Edit {{ book['title'] }}">Edit</summary>
+                    <div style="position:absolute;z-index:50;right:0;top:100%;margin-top:4px;background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-md);padding:16px;min-width:280px;box-shadow:var(--shadow-md);">
+                      <form method="POST" action="{{ url_for('librarian.edit_book', book_id=book['book_id']) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group" style="margin-bottom:8px;"><label>Title</label>
+                          <input type="text" name="title" value="{{ book['title'] }}" required></div>
+                        <div class="form-group" style="margin-bottom:8px;"><label>Author</label>
+                          <input type="text" name="author" value="{{ book['author'] }}" required></div>
+                        <div class="form-group" style="margin-bottom:8px;"><label>Dept</label>
+                          <input type="text" name="dept" value="{{ book['dept'] }}" required style="text-transform:uppercase;"></div>
+                        <div class="form-group" style="margin-bottom:8px;"><label>ISBN</label>
+                          <input type="text" name="isbn" value="{{ book['isbn'] or '' }}"></div>
+                        <div class="form-group" style="margin-bottom:12px;"><label>Total copies</label>
+                          <input type="number" name="total_copies" value="{{ book['total_copies'] }}" min="0" required></div>
+                        <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Save changes</button>
+                      </form>
+                    </div>
+                  </details>
+
+                  <form method="POST" action="{{ url_for('librarian.delete_book', book_id=book['book_id']) }}"
+                        data-confirm="Delete '{{ book['title'] }}'? This cannot be undone.">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger btn-xs"
+                            {% if on_loan > 0 %}disabled title="{{ on_loan }} copies still on loan"{% endif %}>
+                      Delete
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr class="empty-row"><td colspan="8">No books in the catalogue.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</section>
+
+{# ===========================
+   TAB 3 — Students
+   =========================== #}
+<section id="panel-students" data-panel="students" hidden aria-labelledby="tab-students">
+
+  {# Add student #}
+  <div class="card mb-6" style="border-top:3px solid var(--teal);">
+    <div class="card-header"><h3>➕ Add Student</h3></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('librarian.add_student') }}" class="form-row">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group"><label>Student ID *</label>
+          <input type="text" name="user_id" placeholder="STU010" required maxlength="20" style="text-transform:uppercase;"></div>
+        <div class="form-group"><label>Full Name *</label>
+          <input type="text" name="name" placeholder="Full name" required maxlength="80"></div>
+        <div class="form-group" style="max-width:100px;"><label>Dept *</label>
+          <input type="text" name="dept" placeholder="CS" required maxlength="10" style="text-transform:uppercase;"></div>
+        <div class="form-group" style="max-width:120px;"><label>Semester</label>
+          <input type="number" name="semester" value="1" min="1" max="8" required></div>
+        <div class="form-group"><label>Password *</label>
+          <input type="password" name="password" placeholder="Initial password" required minlength="8"></div>
+        <div style="display:flex;align-items:flex-end;">
+          <button type="submit" class="btn btn-success">Add Student</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# Student list #}
+  <div class="card">
+    <div class="card-header">
+      <h3>👥 All Students</h3>
+      <span class="badge badge-blue">{{ all_students|length }} students</span>
+    </div>
+    <div class="card-body" style="padding-bottom:0;">
+      <input type="text" class="table-search" placeholder="Search students…"
+             data-filter-target="#students-table" aria-label="Search students">
+    </div>
+    <div class="table-wrap">
+      <table id="students-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Dept</th>
+            <th>Semester</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stu in all_students %}
+            <tr>
+              <td><code>{{ stu['user_id'] }}</code></td>
+              <td><strong>{{ stu['name'] }}</strong></td>
+              <td><span class="badge badge-blue">{{ stu['dept'] }}</span></td>
+              <td class="text-sm">{{ stu['semester'] }}</td>
+              <td>
+                {% if stu['is_active'] %}
+                  <span class="badge badge-green">Active</span>
+                {% else %}
+                  <span class="badge badge-red">Suspended</span>
+                {% endif %}
+              </td>
+              <td>
+                <form method="POST" action="{{ url_for('librarian.toggle_student', user_id=stu['user_id']) }}"
+                      data-confirm="{% if stu['is_active'] %}Suspend {{ stu['name'] }}'s account?{% else %}Reactivate {{ stu['name'] }}'s account?{% endif %}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-xs {% if stu['is_active'] %}btn-warning{% else %}btn-success{% endif %}">
+                    {{ 'Suspend' if stu['is_active'] else 'Reactivate' }}
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr class="empty-row"><td colspan="6">No students registered.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</section>
+
+{# ===========================
+   TAB 4 — Defaulters
+   =========================== #}
+<section id="panel-defaulters" data-panel="defaulters" hidden aria-labelledby="tab-defaulters">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>⚠ Students with Fines or Suspensions</h3>
+      <span class="badge badge-red">{{ defaulters|length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Dept</th>
+            <th>Fines (unpaid)</th>
+            <th>Account</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in defaulters %}
+            <tr>
+              <td><code>{{ d['user_id'] }}</code></td>
+              <td><strong>{{ d['name'] }}</strong></td>
+              <td><span class="badge badge-blue">{{ d['dept'] }}</span></td>
+              <td>
+                {% if d['total_fine'] > 0 %}
+                  <strong style="color:var(--red);">Rs.{{ "%.2f"|format(d['total_fine']) }}</strong>
+                  <span class="text-xs text-muted">({{ d['fine_count'] }} fine(s))</span>
+                {% else %}
+                  <span class="text-muted">Rs.0.00</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if d['is_active'] %}
+                  <span class="badge badge-green">Active</span>
+                {% else %}
+                  <span class="badge badge-red">Suspended</span>
+                {% endif %}
+              </td>
+              <td>
+                <form method="POST" action="{{ url_for('librarian.settle_fine') }}"
+                      data-confirm="Clear all fines for {{ d['name'] }} and restore their account?">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="student_id" value="{{ d['user_id'] }}">
+                  <button type="submit" class="btn btn-success btn-xs"
+                          {% if d['total_fine'] == 0 %}disabled{% endif %}>
+                    Settle fines
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr class="empty-row"><td colspan="6">No defaulters. 🎉</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</section>
+
+{# ===========================
+   TAB 5 — Reports
+   =========================== #}
+<section id="panel-reports" data-panel="reports" hidden aria-labelledby="tab-reports">
+
+  <div class="dashboard-grid">
+
+    {# Department stats #}
+    <div class="card">
+      <div class="card-header"><h3>🏛 Loans by Department</h3></div>
+      <div class="card-body">
+        {% if dept_stats %}
+          {% set max_loans_dept = dept_stats[0]['total'] %}
+          {% for ds in dept_stats %}
+            <div style="margin-bottom:14px;">
+              <div class="flex gap-2" style="margin-bottom:4px; justify-content:space-between;">
+                <span class="text-sm"><strong>{{ ds['dept'] }}</strong></span>
+                <span class="text-sm text-muted">{{ ds['total'] }} loans</span>
+              </div>
+              <div class="bar-track" style="height:10px; min-width:unset;">
+              <div class="bar-fill" data-width="{{ ((ds['total'] / max_loans_dept) * 100)|round }}"></div>
+              </div>
+            </div>
+          {% endfor %}
+        {% else %}
+          <p class="text-sm text-muted">No loan data yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# Top books #}
+    <div class="card">
+      <div class="card-header"><h3>🔥 Most Borrowed Books</h3></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Rank</th><th>Title</th><th>Author</th><th>Borrows</th></tr>
+          </thead>
+          <tbody>
+            {% for book in top_books %}
+              <tr>
+                <td class="text-muted">{{ loop.index }}</td>
+                <td><strong>{{ book['title'] }}</strong></td>
+                <td class="text-sm text-muted">{{ book['author'] }}</td>
+                <td><span class="badge badge-teal">{{ book['borrow_count'] }}</span></td>
+              </tr>
+            {% else %}
+              <tr class="empty-row"><td colspan="4">No data yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
+{# ===========================
+   TAB 6 — Audit Log
+   =========================== #}
+<section id="panel-audit" data-panel="audit" hidden aria-labelledby="tab-audit">
+
+  <div class="card">
+    <div class="card-header">
+      <h3>🔍 Activity Log</h3>
+      <span class="badge badge-gray">Last 15 events</span>
+    </div>
+    <div class="card-body">
+      <div class="terminal" role="log" aria-label="System activity log" aria-live="off">
+        {% for log in audit_logs %}
+          <div class="log-line">
+            <span class="ts">[{{ log['timestamp'] }}]</span>
+            <span class="{% if log['status'] == 'SUCCESS' %}ev-SUCCESS{% elif 'FAIL' in log['status'] or 'CRIT' in log['status'] %}ev-FAILED{% elif 'LOCK' in log['status'] %}ev-LOCKED{% else %}ev-other{% endif %}">
+              {{ log['activity_type'] }}
+            </span>
+            <br>
+            <span class="actor">{{ log['user_id'] or 'system' }}</span>
+            <span class="detail"> — {{ log['details'] }}</span>
+          </div>
+        {% else %}
+          <div class="detail">No activity recorded yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<script>
+document.querySelectorAll('.bar-fill').forEach(el => {
+    el.style.width = el.dataset.width + '%';
+});
+</script>
+
+{% endblock %}

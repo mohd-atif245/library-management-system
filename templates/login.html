@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Sign In — Library MS{% endblock %}
+
+{# Login page has no topbar #}
+{% block topbar %}{% endblock %}
+
+{% block content %}
+<div class="login-page">
+  <div class="login-card">
+
+    <div class="login-card-header">
+      <span class="logo" aria-hidden="true">📚</span>
+      <h1>Library Management System</h1>
+      <p>Sign in to your account</p>
+    </div>
+
+    <div class="login-card-body">
+      {# Flash messages inside login card #}
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-list" role="alert" aria-live="polite" style="margin-bottom:16px;">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">
+                <span aria-hidden="true">
+                  {% if category == 'success' %}✓{% elif category == 'danger' %}✕{% elif category == 'warning' %}⚠{% else %}ℹ{% endif %}
+                </span>
+                {{ message }}
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="user_id">Library ID</label>
+          <input
+            type="text"
+            id="user_id"
+            name="user_id"
+            placeholder="e.g. STU001 or LIB001"
+            autocomplete="username"
+            required
+            autofocus
+          >
+        </div>
+
+        <div class="form-group" style="margin-bottom:20px;">
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+
+        <button type="submit" class="btn btn-primary login-btn">Sign in</button>
+      </form>
+
+      <div class="login-hint" role="note" aria-label="Demo credentials">
+        <strong>Demo credentials</strong><br>
+        Student ID: <code>STU001</code> · Password: <code>student123</code><br>
+        Librarian ID: <code>LIB001</code> · Password: <code>librarian123</code>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

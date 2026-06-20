@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+{% block title %}Student Dashboard — Library MS{% endblock %}
+
+{% block content %}
+{# Page header #}
+<div class="flex gap-3" style="margin-bottom:24px; flex-wrap:wrap; align-items:flex-start; justify-content:space-between;">
+  <div>
+    <h1>My Library</h1>
+    <p class="text-sm text-muted" style="margin-top:2px;">
+      {{ student['name'] }} · {{ student['dept'] }} Department · Semester {{ student['semester'] }}
+    </p>
+  </div>
+  {% if not student['is_active'] %}
+    <span class="badge badge-red" style="font-size:.82rem; padding:5px 12px;">
+      ⛔ Account suspended
+    </span>
+  {% else %}
+    <span class="badge badge-green" style="font-size:.82rem; padding:5px 12px;">
+      ✓ Account active
+    </span>
+  {% endif %}
+</div>
+
+{# Outstanding fines banner #}
+{% if fines %}
+  <div class="flash warning" style="margin-bottom:20px;">
+    ⚠ You have <strong>{{ fines|length }} unpaid fine(s)</strong> totalling
+    <strong>Rs.{{ "%.2f"|format(total_fine) }}</strong>.
+    Please visit the library desk to clear them before borrowing more books.
+  </div>
+{% endif %}
+
+{# Suspended banner #}
+{% if not student['is_active'] %}
+  <div class="flash danger" style="margin-bottom:20px;">
+    ✕ Your borrowing privileges are suspended. Please speak to the librarian.
+  </div>
+{% endif %}
+
+{# ---- Metrics ---- #}
+<div class="metrics-grid" style="margin-bottom:24px;">
+  <div class="metric blue">
+    <span class="metric-icon" aria-hidden="true">📖</span>
+    <div class="metric-value">{{ loans|length }}</div>
+    <div class="metric-label">Books on loan</div>
+  </div>
+  <div class="metric {% if loans|length >= max_loans %}red{% else %}green{% endif %}">
+    <span class="metric-icon" aria-hidden="true">🎫</span>
+    <div class="metric-value">{{ max_loans - loans|length }}</div>
+    <div class="metric-label">Loans remaining</div>
+  </div>
+  <div class="metric {% if fines %}amber{% else %}teal{% endif %}">
+    <span class="metric-icon" aria-hidden="true">💰</span>
+    <div class="metric-value">Rs.{{ "%.0f"|format(total_fine) }}</div>
+    <div class="metric-label">Outstanding fines</div>
+  </div>
+  <div class="metric amber">
+    <span class="metric-icon" aria-hidden="true">⚠️</span>
+    <div class="metric-value">{{ loans|selectattr('is_overdue')|list|length }}</div>
+    <div class="metric-label">Overdue books</div>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+
+  {# ---- Borrow a book ---- #}
+  <div class="card">
+    <div class="card-header">
+      <h3>📖 Borrow a Book</h3>
+    </div>
+    <div class="card-body">
+      {% if not student['is_active'] %}
+        <p class="text-sm text-muted">Borrowing is disabled while your account is suspended.</p>
+      {% elif fines %}
+        <p class="text-sm text-muted">Clear your outstanding fines to borrow more books.</p>
+      {% elif loans|length >= max_loans %}
+        <p class="text-sm text-muted">You have reached the {{ max_loans }}-book limit. Return a book first.</p>
+      {% else %}
+        <p class="text-sm text-muted" style="margin-bottom:12px;">
+          Enter a Book ID from the catalogue below, or pick one from the suggestions.
+        </p>
+        <form method="POST" action="{{ url_for('student.issue_book') }}" class="form-row">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group" style="flex:1;">
+            <label for="book_id" class="sr-only">Book ID</label>
+            <input type="text" id="book_id" name="book_id" placeholder="Book ID (e.g. B001)" required
+                   style="text-transform:uppercase;" maxlength="20">
+          </div>
+          <button type="submit" class="btn btn-primary">Borrow</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ---- Suggested books ---- #}
+  <div class="card">
+    <div class="card-header">
+      <h3>⭐ Popular in {{ student['dept'] }}</h3>
+    </div>
+    <div class="card-body">
+      {% if suggestions %}
+        <div class="suggestions-grid">
+          {% for book in suggestions %}
+            <div class="suggestion-card">
+              <div class="sc-dept">{{ book['dept'] }}</div>
+              <div class="sc-title">{{ book['title'] }}</div>
+              <div class="sc-author">{{ book['author'] }}</div>
+              <div class="sc-count">{{ book['borrow_count'] }} total loans</div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-muted">No suggestions available right now.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{# ---- Current loans ---- #}
+<div class="card mb-6">
+  <div class="card-header">
+    <h3>📋 My Current Loans</h3>
+    <span class="badge badge-blue">{{ loans|length }} / {{ max_loans }}</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Transaction ID</th>
+          <th>Book</th>
+          <th>Author</th>
+          <th>Borrowed on</th>
+          <th>Return by</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for loan in loans %}
+          <tr class="{% if loan['is_overdue'] %}overdue-row{% endif %}">
+            <td><code>{{ loan['txn_id'] }}</code></td>
+            <td><strong>{{ loan['title'] }}</strong></td>
+            <td class="text-sm text-muted">{{ loan['author'] }}</td>
+            <td class="text-sm">{{ loan['issue_date'] }}</td>
+            <td class="text-sm">
+              {{ loan['due_date'] }}
+              {% if loan['is_overdue'] %}
+                <span class="overdue-tag">OVERDUE</span>
+              {% elif loan['days_left'] <= 2 %}
+                <span class="badge badge-amber" style="margin-left:4px;">Due soon</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if loan['is_overdue'] %}
+                <span class="badge badge-red">Overdue</span>
+              {% else %}
+                <span class="badge badge-green">On loan</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr class="empty-row"><td colspan="6">You have no books on loan.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{# ---- Fines ---- #}
+{% if fines %}
+<div class="card mb-6">
+  <div class="card-header">
+    <h3>💰 Outstanding Fines</h3>
+    <span class="badge badge-red">Rs.{{ "%.2f"|format(total_fine) }} total</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Fine ID</th>
+          <th>Book</th>
+          <th>Due date</th>
+          <th>Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fine in fines %}
+          <tr>
+            <td><code>{{ fine['fine_id'] }}</code></td>
+            <td>{{ fine['title'] }}</td>
+            <td class="text-sm">{{ fine['due_date'] }}</td>
+            <td><strong style="color:var(--red);">Rs.{{ "%.2f"|format(fine['amount']) }}</strong></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body" style="padding-top:12px;">
+    <p class="text-sm text-muted">
+      Visit the library desk to pay your fines in cash. Your borrowing access will be restored immediately.
+    </p>
+  </div>
+</div>
+{% endif %}
+
+{# ---- Full catalogue ---- #}
+<div class="card">
+  <div class="card-header">
+    <h3>🗂 Book Catalogue</h3>
+    <span class="badge badge-gray">{{ catalogue|length }} books</span>
+  </div>
+  <div class="card-body" style="padding-bottom:0;">
+    <input
+      type="text"
+      class="table-search"
+      placeholder="Search catalogue…"
+      data-filter-target="#catalogue-table"
+      aria-label="Search book catalogue"
+    >
+  </div>
+  <div class="table-wrap">
+    <table id="catalogue-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Author</th>
+          <th>Dept</th>
+          <th>ISBN</th>
+          <th>Availability</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for book in catalogue %}
+          {% set pct = (book['available_copies'] / book['total_copies'] * 100) if book['total_copies'] > 0 else 0 %}
+          {% set avail_class = 'empty' if book['available_copies'] == 0 else ('low' if pct < 40 else '') %}
+          <tr>
+            <td><code>{{ book['book_id'] }}</code></td>
+            <td><strong>{{ book['title'] }}</strong></td>
+            <td class="text-sm text-muted">{{ book['author'] }}</td>
+            <td><span class="badge badge-blue">{{ book['dept'] }}</span></td>
+            <td class="text-xs text-muted">{{ book['isbn'] or '—' }}</td>
+            <td>
+              <div class="availability-bar">
+                <div class="bar-track">
+                  <div class="bar-fill {{ avail_class }}" data-width="{{ pct }}"></div>
+                </div>
+                <span class="text-xs" style="min-width:40px;">{{ book['available_copies'] }}/{{ book['total_copies'] }}</span>
+              </div>
+            </td>
+            <td>
+              {% if book['book_id'] in issued_book_ids %}
+                <span class="badge badge-teal">On loan</span>
+              {% elif book['available_copies'] > 0 and student['is_active'] and not fines and loans|length < max_loans %}
+                <form method="POST" action="{{ url_for('student.issue_book') }}" style="display:inline;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="book_id" value="{{ book['book_id'] }}">
+                  <button type="submit" class="btn btn-primary btn-xs">Borrow</button>
+                </form>
+              {% elif book['available_copies'] == 0 %}
+                <span class="badge badge-red">Unavailable</span>
+              {% else %}
+                <span class="badge badge-gray">—</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr class="empty-row"><td colspan="7">No books in catalogue.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.bar-fill').forEach(el => {
+    el.style.width = el.dataset.width + '%';
+});
+</script>
+
+{% endblock %}

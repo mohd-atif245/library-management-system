@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Library Management System — manage books, loans, and fines.">
+  <title>{% block title %}Library Management System{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+{% block topbar %}
+<nav class="topbar" role="navigation" aria-label="Main navigation">
+  <a href="#main" class="topbar-brand">
+    <span aria-hidden="true">📚</span>
+    Library MS
+  </a>
+  <div class="topbar-right">
+    {% if session.get('name') %}
+      <span class="topbar-user" aria-label="Logged in as {{ session['name'] }}">
+        <strong>{{ session['name'] }}</strong>
+        <span class="text-xs"> · {{ session['role'] }}</span>
+      </span>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-ghost btn-sm">Log out</a>
+    {% endif %}
+  </div>
+</nav>
+{% endblock %}
+
+<main id="main" class="page-wrapper">
+  {# Flash messages #}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-list" role="alert" aria-live="polite">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">
+            <span aria-hidden="true">
+              {% if category == 'success' %}✓{% elif category == 'danger' %}✕{% elif category == 'warning' %}⚠{% else %}ℹ{% endif %}
+            </span>
+            {{ message }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</main>
+
+<script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
