@@ -123,8 +123,8 @@ Open your browser and navigate to: `http://127.0.0.1:5000`
 
 | Login Page | Student Dashboard |
 |------------|-------------------|
-| *![Login Page](screenshots/login.png)* | *![Student Dashboard](screenshots/student-dashboard.png)* |
+| *![Login Page](screenshots/login.PNG)* | *![Student Dashboard](screenshots/student-dashboard.PNG)* |
 
 | Librarian Dashboard | Book Catalog |
 |---------------------|--------------|
-| *![Librarian Dashboard](screenshots/librarian-dashboard.png)* | *![Book Catalogue](screenshots/books.png)* |
+| *![Librarian Dashboard](screenshots/librarian-dashboard.PNG)* | *![Book Catalogue](screenshots/books.PNG)* |
